@@ -1,0 +1,160 @@
+#!/bin/zsh
+
+help_page()
+{
+	echo "Usage: shell_hash [-i] 'input hash' [-f] 'input file'"
+	echo ""
+	echo "Operators:"
+	echo "   -i 			Input hash"
+	echo "   -f  			Input file"
+	printf "   -r\t\t\tString range [first char][last char][max lenth] (ASCII order)\n"
+	printf "   \t\t\t\tDefault 0z3\n"
+	echo "   -v, --verbose  	Verbose output"
+	echo "   -h, --help  		Show this page"
+}
+
+error()
+{
+	echo "Error: "$1
+	echo ""
+	help_page
+	exit
+}
+
+str_to_value()
+{
+	local string=$1
+	local out="0x"
+	for (( i=1; i<=${#string}; i++ ))
+	do
+		out+=$(printf %x \'$string[$i])
+	done	
+	let out+=0
+	echo $out
+}
+
+value_to_str()
+{
+	local value=$(printf %x $1)
+	local out
+	for (( i=1; i<=${#value}; i++ ))
+	do
+		local tmp=$value[$i]
+		let i++
+		tmp+=$value[$i]
+		out+=$(printf "%s" "\x$tmp")
+	done
+	echo $out
+}
+
+append_char()
+{
+	local n=${#cur_str}
+	if [[ $verbose == true ]]
+	then
+		printf "Old: %s\n" $cur_str
+	fi
+	for (( i=1; i<=${#cur_str}; i++ ))
+	do
+		local tmp=$(str_to_value $cur_str[n])
+		if [[ $tmp == $(printf %d \'$final_char) ]] 
+		then
+			cur_str[n]=$start_char
+			let n--
+			if [[ ${#cur_str} < $nr_chars && $i == ${#cur_str} ]]
+			then
+				local tmp_str=$start_char
+				tmp_str+=$cur_str
+				cur_str=$tmp_str
+				n=${#cur_str}
+			fi
+		fi
+	done
+	if [[ $n == 0 ]]
+	then
+		cur=0
+	else
+		local tmp=$(str_to_value $cur_str[n])
+		let tmp+=1
+		cur_str[n]=$(value_to_str $tmp)
+		if [[ $verbose == true ]]
+		then
+			printf "Cur str: %s\n" $cur_str
+		fi
+		cur=$(str_to_value $cur_str)
+	fi
+}
+
+crack_hash()
+{
+	declare cur=$(str_to_value $start_char)
+	while [[ $cur != 0 ]]
+	do
+		cur_str=$(value_to_str $cur)
+		cur_hash=$(echo $cur_str | md5sum | cut -c1-32)
+		if [[ $verbose == true ]]
+		then
+			printf "Current: %s " $cur_str
+			printf "- %s\n" $cur_hash
+		fi
+		for i in $input_hash
+		do
+			if [[ $cur_hash == $input_hash ]]
+			then
+				printf "Found:\t\t%s\n" $cur_str
+				if [[ $single == true ]]
+				then
+					exit
+				fi
+			fi
+		done
+		append_char 
+	done
+}
+
+setopt nullglob
+
+if [[ $1 == "" ]]
+then
+	error "Missing arguments"
+fi
+
+verbose=false
+single=false
+start_char="0"
+final_char="z"
+nr_chars=3
+
+while [ "$1" != "" ]; do
+	case $1 in
+		-i )		shift
+				input_hash=$1
+				single=true
+				;;
+		-f )		shift
+				printf "to do\n"
+				;;
+		-r )		shift
+				local tmp_input=$1
+				start_char=$tmp_input[1]
+				final_char=$tmp_input[2]
+				nr_chars=$tmp_input[3]
+				;;
+		-v | --verbose )verbose=true
+				;;
+		-h | --help )	help_page
+				exit
+       				;;
+		* )		error "Invalid argument"
+	esac		
+	shift
+done
+
+if [[ $input_hash == "" ]]
+then
+	echo "No input hash specified"
+	exit
+fi
+printf "Checking:\t%s\n" $input_hash
+crack_hash
+printf "Input not found"

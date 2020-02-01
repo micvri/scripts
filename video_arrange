@@ -1,0 +1,93 @@
+#!/bin/zsh
+
+help_page()
+{
+	echo "Usage: video_arrange [-i] 'import directory' [-o] 'output directory'"
+}
+
+error()
+{
+	echo "Error: "$1
+	help_page
+	exit
+}
+
+move_files()
+{
+	miss=1
+	for file in $var_in_dir/*
+	do
+		if [[ $file == *.mkv  || $file == *.mp4 ]]
+		then
+			miss=0
+			echo "Moving "$file" to "$var_out_dir
+			mv $file $var_out_dir
+		fi
+	done
+	if [[ $miss == 1 ]]
+	then
+		echo "No video files found in "$var_in_dir" checking\
+ nested directories" 		
+	else
+		echo "Done, now checking nested directories"
+	fi
+	echo ""
+	for dir in $var_in_dir/*
+	do
+		miss=1
+		if [[ -d $dir ]] 
+		then
+			echo "Checking "$dir
+			for file in $dir/*
+			do
+				echo "file: "$file
+				if [[ $file == *.mkv || $file == *.mp4 ]]
+				then
+					miss=0
+					echo "Moving "$file" to "$var_out_dir
+					mv $file $var_out_dir
+				fi
+			done
+			if [[ $miss == 1 ]]
+			then
+				echo "No video files found in "\
+$dir
+			fi
+		fi
+		echo ""
+	done
+}
+
+setopt nullglob
+
+if [[ $1 == "" ]]
+then
+	error "Missing arguments"
+fi
+
+while [ "$1" != "" ]; do
+	case $1 in
+		-i )		shift
+				if [[ $1 != . ]]
+				then
+					var_in_dir=$1
+				else
+					var_in_dir=$(pwd)
+				fi
+				;;
+		-o )		shift
+				var_out_dir=$1
+				;;
+		-h | --help )	help_page
+				exit
+       				;;
+		* )		error "Invalid argument"
+	esac		
+	shift
+done
+
+echo "Input directory: "$var_in_dir 
+echo "Output directory: "$var_out_dir 
+echo ""
+
+move_files
