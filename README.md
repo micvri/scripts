@@ -1,5 +1,4 @@
 # My custom scripts for various useless applications
---
 
 All scripts made with `zsh` in mind
 
