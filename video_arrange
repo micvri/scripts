@@ -7,7 +7,7 @@ help_page()
 
 error()
 {
-	echo "Error: "$1
+	echo "$(tput setaf 202)Error: ${$(tput sgr0)}"$1
 	help_page
 	exit
 }
@@ -15,46 +15,33 @@ error()
 move_files()
 {
 	miss=1
-	for file in $var_in_dir/*
+	for file in $1/*
 	do
-		if [[ $file == *.mkv  || $file == *.mp4 ]]
+		if [[ $file == *$3* ]]
 		then
-			miss=0
-			echo "Moving "$file" to "$var_out_dir
-			mv $file $var_out_dir
-		fi
-	done
-	if [[ $miss == 1 ]]
-	then
-		echo "No video files found in "$var_in_dir" checking\
- nested directories" 		
-	else
-		echo "Done, now checking nested directories"
-	fi
-	echo ""
-	for dir in $var_in_dir/*
-	do
-		miss=1
-		if [[ -d $dir ]] 
-		then
-			echo "Checking "$dir
-			for file in $dir/*
-			do
-				echo "file: "$file
-				if [[ $file == *.mkv || $file == *.mp4 ]]
-				then
-					miss=0
-					echo "Moving "$file" to "$var_out_dir
-					mv $file $var_out_dir
-				fi
-			done
-			if [[ $miss == 1 ]]
+			dir=$file
+			if [[ $file == *.mkv  || $file == *.mp4 ]]
 			then
-				echo "No video files found in "\
-$dir
+				miss=0
+				echo "${$(tput setaf 11)}Moving ${$(tput sgr0)}"$file"${$(tput setaf 11)} to ${$(tput sgr0)}"$2
+				mv $file $2
+			elif [[ -d $dir ]]
+			then
+				echo "${$(tput setaf 11)}Checking ${$(tput sgr0)}"$dir
+				move_files $dir $2 $3
+				if [[ $miss == 1 ]]
+				then
+					echo "$(tput setaf 202)No video files found in ${$(tput sgr0)}"\
+$(echo $dir | rev | cut -d'/' -f2- | rev)
+				else
+					echo "${$(tput setaf 11)}Removing empty directory: ${$(tput sgr0)}"\
+$(echo $dir | rev | cut -d'/' -f2- | rev)
+					rm -rf $(echo $dir | rev | cut -d'/' -f2- | rev)
+					miss=1
+				fi
 			fi
+			
 		fi
-		echo ""
 	done
 }
 
@@ -62,8 +49,10 @@ setopt nullglob
 
 if [[ $1 == "" ]]
 then
-	error "Missing arguments"
+	error "$(tput setaf 202)Missing arguments${$(tput sgr0)}"
 fi
+
+filter=""
 
 while [ "$1" != "" ]; do
 	case $1 in
@@ -76,8 +65,16 @@ while [ "$1" != "" ]; do
 				fi
 				;;
 		-o )		shift
-				var_out_dir=$1
+				if [[ $1 != . ]]
+				then
+					var_out_dir=$1
+				else
+					var_out_dir=$(pwd)
+				fi
 				;;
+		-f | --filter )	shift
+				filter=$1
+				;;		
 		-h | --help )	help_page
 				exit
        				;;
@@ -88,6 +85,7 @@ done
 
 echo "Input directory: "$var_in_dir 
 echo "Output directory: "$var_out_dir 
+echo "Filter: "$filter
 echo ""
 
-move_files
+move_files $var_in_dir $var_out_dir $filter
